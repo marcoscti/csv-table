@@ -1,0 +1,249 @@
+/* Estilo personalizado para a tabela com DataTables */
+.csv-table {
+    width: 100% !important;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 14px;
+}
+
+.csv-table th {
+    background-color: #0094C6;
+    color: white;
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: bold;
+    position: relative;
+    cursor: pointer;
+}
+
+.csv-table th:hover {
+    background-color: #0094c6c9;
+}
+
+.csv-table td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.csv-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.csv-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Indicadores de ordenação */
+.csv-table th.sorting_asc:after {
+    content: " ↑";
+    opacity: 1;
+}
+
+.csv-table th.sorting_desc:after {
+    content: " ↓";
+    opacity: 1;
+}
+
+.csv-table th.sorting:after {
+    content: " ↕";
+    opacity: 0.3;
+}
+
+/* Paginação */
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.page-btn {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.page-btn:hover {
+    background: #f0f0f0;
+}
+
+.page-btn.active {
+    background: #0094C6;
+    color: white;
+    border-color: #0094C6;
+}
+
+.pagination-info {
+    text-align: center;
+    margin: 10px 0;
+    color: #575756;
+}
+
+/* Container responsivo */
+.csv-table-container {
+    overflow-x: auto;
+    max-width: 100%;
+    margin: 0 auto;
+    border-radius: 5px;
+}
+
+/* Controles de busca */
+.csv-table-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.csv-table-controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.csv-table-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-weight: normal;
+    font-size: 10px;
+}
+
+.csv-table-controls label input {
+    outline: none;
+}
+
+.csv-table-search {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 250px;
+}
+
+.csv-table-perpage {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+/* Para telas pequenas */
+@media (max-width: 768px) {
+    .csv-table-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .csv-table-search {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .pagination-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+.csv-table tr.selected {
+    background: #ffee0062 !important;
+}
+
+.csv-table tr.selected td {
+    background: transparent !important;
+}
+
+.loader-container {
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 80px;
+    margin: 20px 0;
+}
+
+.dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #fff;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.dot:nth-child(1) {
+    background-color: #0094C6;
+}
+
+.dot:nth-child(2) {
+    background-color: #C8D400;
+    animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+    background-color: #FFED00;
+    animation-delay: 0.4s;
+}
+
+.dot:nth-child(4) {
+    background-color: #EC6608;
+    animation-delay: 0.6s;
+}
+
+.dot:nth-child(5) {
+    background-color: #575756;
+    animation-delay: 0.8s;
+}
+
+
+/* Animações */
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(0.8);
+        opacity: 0.7;
+    }
+
+    50% {
+        transform: scale(1.4);
+        opacity: 1;
+    }
+}
+
+.code-container {
+    margin-top: 40px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 600px;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+
+    .loader-container {
+        padding: 30px 20px;
+    }
+
+    .dot {
+        width: 16px;
+        height: 16px;
+    }
+}
