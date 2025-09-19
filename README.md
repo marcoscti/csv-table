@@ -22,10 +22,9 @@ Plugin WordPress para exibir arquivos **CSV remotos** em tabelas dinâmicas com 
 Adicione o shortcode em qualquer post ou página:
 
 ```php
-[dinamic_table 
+[csv_table 
   url="https://example.com/file.csv" 
   per_page="10" 
   delimiter=";" 
   cache_minutes="60" 
-  has_header="1" 
 ]

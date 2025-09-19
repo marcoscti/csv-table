@@ -176,13 +176,9 @@ class CSV_Table_Shortcode
     }
 
 public function ajax_fetch()
-{
-    // DEBUG - verificar se está chegando aqui
-    error_log('ajax_fetch called');
-    
+{   
     // Segurança
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'csv_table_ajax_nonce')) {
-        error_log('Nonce verification failed');
         wp_send_json_error('Nonce verification failed', 403);
         wp_die();
     }
@@ -194,17 +190,13 @@ public function ajax_fetch()
     $has_header = isset($_POST['has_header']) ? ($_POST['has_header'] === '1' || $_POST['has_header'] === 'true') : true;
     $search = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
 
-    error_log('Params: url=' . $url . ', per_page=' . $per_page . ', page=' . $page . ', search=' . $search);
-
     if (empty($url)) {
-        error_log('Missing URL parameter');
-        wp_send_json_error('Missing URL parameter', 400);
+       wp_send_json_error('Missing URL parameter', 400);
         wp_die();
     }
 
     $local = $this->ensure_local_copy($url, $cache_minutes);
     if (is_wp_error($local)) {
-        error_log('ensure_local_copy error: ' . $local->get_error_message());
         wp_send_json_error('Failed to load CSV: ' . $local->get_error_message(), 500);
         wp_die();
     }
@@ -214,16 +206,13 @@ public function ajax_fetch()
     $header = $json_data['header'];
     $all_data = $json_data['data'];
 
-    error_log('Data loaded: ' . count($all_data) . ' rows');
-
+   
     // SEMPRE paginar - remover a lógica do get_all
     $filtered_data = array();
     if ($search === '') {
         $filtered_data = $all_data;
-        error_log('No search filter applied');
     } else {
         $search_lower = trim(strtolower($search));
-        error_log('Searching for: ' . $search_lower);
         foreach ($all_data as $row) {
             $found = false;
             foreach ($row as $cell) {
@@ -237,24 +226,19 @@ public function ajax_fetch()
                 $filtered_data[] = $row;
             }
         }
-        error_log('Search results: ' . count($filtered_data) . ' rows found');
     }
 
     $total_rows = count($filtered_data);
     $total_pages = max(1, ceil($total_rows / $per_page));
 
-    error_log('Total rows: ' . $total_rows . ', Total pages: ' . $total_pages . ', Requested page: ' . $page);
-
     if ($page > $total_pages) {
         $page = $total_pages;
-        error_log('Adjusted page to: ' . $page);
     }
 
     $start = ($page - 1) * $per_page;
     $page_data = array_slice($filtered_data, $start, $per_page);
 
-    error_log('Slicing data: start=' . $start . ', per_page=' . $per_page . ', result count=' . count($page_data));
-
+   
     // Cabeçalho numérico se não existir
     if (empty($header) && $has_header && !empty($page_data)) {
         $col_count = count($page_data[0]);
@@ -262,7 +246,6 @@ public function ajax_fetch()
         for ($i = 0; $i < $col_count; $i++) {
             $header[] = 'Coluna ' . ($i + 1);
         }
-        error_log('Generated numeric header with ' . $col_count . ' columns');
     }
 
     // Normalizar linhas
@@ -280,8 +263,7 @@ public function ajax_fetch()
         $safe_header[] = is_null($cell) ? '' : strval($cell);
     }
 
-    error_log('Returning: ' . count($safe_rows) . ' rows for page ' . $page);
-
+    
     wp_send_json_success(array(
         'header' => $safe_header,
         'rows' => $safe_rows,
