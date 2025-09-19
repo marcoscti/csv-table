@@ -147,8 +147,11 @@
     }
 
     .pagination-controls {
-        flex-direction: column;
+        flex-direction: row;
         gap: 10px;
+    }
+    .csv-table-pagination{
+        flex-direction: column;
     }
 }
 
