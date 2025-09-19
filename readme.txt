@@ -21,7 +21,7 @@ O **CSV Table Shortcode** permite exibir dados de arquivos CSV remotos em uma ta
 * Integração com DataTables para ordenação, responsividade e experiência avançada.
 
 Usage:
-[ dinamic_table url="https://example.com/file.csv" per_page="10" delimiter=";" cache_minutes="60" has_header="1" ]
+[csv_table url="https://example.com/file.csv" per_page="10" delimiter=";" cache_minutes="60" has_header="1" ]
 
 Description:
 - Transmite um CSV remoto para um arquivo de cache em wp-content/uploads/csv_table_cache/
