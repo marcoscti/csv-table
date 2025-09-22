@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: CSV Table
- * Description: Shortcode para ler um CSV remoto e renderizar uma tabela paginada do lado do servidor via AJAX. Otimizado para transmitir arquivos CSV grandes. Uso: [dinamic_table url="https://example.com/file.csv" per_page="10" cache_minutes="60" delimiter=";"]
+ * Description: Shortcode para ler um CSV remoto e renderizar uma tabela paginada do lado do servidor via AJAX. Otimizado para transmitir arquivos CSV grandes. Uso: [csv_table url="https://example.com/file.csv" per_page="10" cache_minutes="60" delimiter=";"]
  * Version: 1.1.0
  * Author: Marcos Cordeiro
  * Author URI: https://marcoscti.dev/
@@ -282,13 +282,13 @@ public function ajax_fetch()
             'delimiter' => ',',
             'has_header' => 1,
             'class' => '',
-        ), $atts, 'dinamic_table');
+        ), $atts, 'csv_table');
 
         if (empty($atts['url'])) {
             return '<div class="csv-table-error">Dynamic Table: falta o atributo <code>url</code>.</div>';
         }
 
-        $uid = 'dinamic_table_' . uniqid();
+        $uid = 'csv_table_' . uniqid();
         ob_start();
 ?>
         <div class="csv-table-ajax-wrap <?php echo esc_attr($atts['class']); ?>" id="<?php echo esc_attr($uid); ?>-wrap"
