@@ -48,8 +48,8 @@ class CSV_Table_Shortcode
             '1.13.6',
             true
         );
-        wp_enqueue_script('csv-table-ajax-js', plugins_url('assets/js/csv-ajax.js', __FILE__), array(), false, true);
-        wp_enqueue_style('csv-table-ajax-css', plugins_url('assets/css/csv-style.css', __FILE__));
+        wp_enqueue_script('csv-table-ajax-js', plugins_url('assets/js/csv-ajax.js', __FILE__), array(), false, "all");
+        wp_enqueue_style('csv-table-ajax-css', plugins_url('assets/css/csv-style.css', __FILE__),array(), false, "all");
 
         wp_localize_script('csv-table-ajax-js', 'CSVTableAjax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
