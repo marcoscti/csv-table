@@ -109,13 +109,41 @@
                     }
 
                     var filterIcon = $('<span>').addClass('filter-icon').html(' &#128269;');
-                    var filterInput = $('<input>').addClass('filter-input').attr('data-column', columnIndex);
+                    var filterInput = $('<input>').addClass('filter-input').attr('data-column', columnIndex); // Removed .hide()
+                    var clearFilter = $('<span>').addClass('clear-filter').html(' &times;').css('cursor', 'pointer').hide();
+                    
                     th.append(filterIcon);
                     th.append(filterInput);
+                    th.append(clearFilter);
+
+                    // If there's a filter, ensure input and clear icon are visible and populated
+                    if (columnFilters[columnIndex] && columnFilters[columnIndex] !== '') {
+                        filterInput.val(columnFilters[columnIndex]); // No .show() needed if not hidden initially
+                        clearFilter.show();
+                    }
 
                     filterIcon.on('click', function(e) {
                         e.stopPropagation();
-                        filterInput.toggle();
+                        // If filterInput is visible, hide it and clearFilter.
+                        // If filterInput is hidden, show it.
+                        if (filterInput.is(':visible')) {
+                            filterInput.hide();
+                            clearFilter.hide();
+                        } else {
+                            filterInput.show();
+                            if (filterInput.val() !== '') { // Only show clearFilter if there's text
+                                clearFilter.show();
+                            }
+                        }
+                    });
+
+                    clearFilter.on('click', function(e) {
+                        e.stopPropagation();
+                        filterInput.val(''); // Clear value, but don't hide input
+                        $(this).hide(); // Hide clear icon
+                        delete columnFilters[columnIndex];
+                        currentPage = 1;
+                        fetchData();
                     });
 
                     filterInput.on('click', function(e) {
@@ -123,7 +151,15 @@
                     });
 
                     filterInput.on('input', function() {
-                        columnFilters[columnIndex] = $(this).val();
+                        var searchTerm = $(this).val();
+                        columnFilters[columnIndex] = searchTerm;
+                        
+                        if (searchTerm !== '') {
+                            clearFilter.show();
+                        } else {
+                            clearFilter.hide();
+                        }
+
                         clearTimeout(searchTimer);
                         searchTimer = setTimeout(function () {
                             currentPage = 1;
