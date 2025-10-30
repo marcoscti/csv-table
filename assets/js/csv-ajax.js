@@ -8,9 +8,15 @@
             var table = wrap.find('.csv-table');
             var tbody = table.find('tbody');
             var thead = table.find('thead');
-            var paginationEl = wrap.find('.csv-table-pagination');
-            var cache_minutes = wrap.data('cache_minutes') || 60;
-            var has_header = wrap.data('has_header') === '1' || wrap.data('has_header') === 'true';
+                                    var paginationEl = wrap.find('.csv-table-pagination'); // Original pagination element
+                                    var csvTableControls = wrap.find('.csv-table-controls'); // Element to place new pagination after
+                                    var bottomPaginationEl = $('<div class="csv-table-pagination bottom-pagination"></div>'); // New pagination element
+                                    if (csvTableControls.length) {
+                                        csvTableControls.after(bottomPaginationEl);
+                                    } else {
+                                        wrap.append(bottomPaginationEl); // Fallback if controls not found
+                                    }
+                                    var cache_minutes = wrap.data('cache_minutes') || 60;            var has_header = wrap.data('has_header') === '1' || wrap.data('has_header') === 'true';
             var remove_rows = wrap.data('remove_rows');
             var remove_cols = wrap.data('remove_cols');
             var currentPage = 1;
@@ -222,6 +228,8 @@
 
             function updatePagination(data) {
                 paginationEl.empty();
+                bottomPaginationEl.empty(); // Clear the new pagination element as well
+
                 var total_pages = data && data.total_pages ? data.total_pages : 1;
                 var total_rows = data && data.total_rows ? data.total_rows : 0;
                 var current_page = data && data.page ? data.page : 1;
@@ -230,21 +238,26 @@
                 
                 var infoText = 'Exibindo página ' + currentPage + ' de ' + total_pages +
                     ' | ' + total_rows + ' registro(s) total';
+                
+                // Append to both original and new pagination elements
                 $('<div>').addClass('pagination-info').text(infoText).appendTo(paginationEl);
+                $('<div>').addClass('pagination-info').text(infoText).appendTo(bottomPaginationEl);
 
                 if (total_pages <= 1) return;
 
                 var paginationControls = $('<div>').addClass('pagination-controls');
-                
+                var bottomPaginationControls = $('<div>').addClass('pagination-controls'); // New controls for bottom
+
                 if (currentPage > 1) {
-                    $('<button>')
+                    var prevBtn = $('<button>')
                         .addClass('page-btn prev-btn')
                         .html('&laquo; Anterior')
                         .click(function () {
                             currentPage--;
                             fetchData();
-                        })
-                        .appendTo(paginationControls);
+                        });
+                    prevBtn.clone(true).appendTo(paginationControls); // Clone for original
+                    prevBtn.appendTo(bottomPaginationControls); // Append to new
                 }
 
                 var startPage = Math.max(1, currentPage - 2);
@@ -255,28 +268,31 @@
                 }
                 
                 for (var p = startPage; p <= endPage; p++) {
-                    $('<button>')
+                    var pageBtn = $('<button>')
                         .addClass('page-btn ' + (p === currentPage ? 'active' : ''))
                         .text(p)
                         .click(function () {
                             currentPage = parseInt($(this).text());
                             fetchData();
-                        })
-                        .appendTo(paginationControls);
+                        });
+                    pageBtn.clone(true).appendTo(paginationControls); // Clone for original
+                    pageBtn.appendTo(bottomPaginationControls); // Append to new
                 }
 
                 if (currentPage < total_pages) {
-                    $('<button>')
+                    var nextBtn = $('<button>')
                         .addClass('page-btn next-btn')
                         .html('Próximo &raquo;')
                         .click(function () {
                             currentPage++;
                             fetchData();
-                        })
-                        .appendTo(paginationControls);
+                        });
+                    nextBtn.clone(true).appendTo(paginationControls); // Clone for original
+                    nextBtn.appendTo(bottomPaginationControls); // Append to new
                 }
 
                 paginationControls.appendTo(paginationEl);
+                bottomPaginationControls.appendTo(bottomPaginationEl);
             }
 
             perPageSelect.off('change').on('change', function () {
