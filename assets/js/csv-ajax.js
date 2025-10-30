@@ -11,19 +11,20 @@
             var paginationEl = wrap.find('.csv-table-pagination');
             var cache_minutes = wrap.data('cache_minutes') || 60;
             var has_header = wrap.data('has_header') === '1' || wrap.data('has_header') === 'true';
+            var remove_rows = wrap.data('remove_rows');
+            var remove_cols = wrap.data('remove_cols');
             var currentPage = 1;
             var isLoading = false;
             var currentSearchTerm = '';
             var searchTimer = null;
-            var currentSort = { column: null, direction: 'asc' }; // Novo: controle de ordenação
+            var currentSort = { column: null, direction: 'asc' };
+            var columnFilters = {};
 
-            // Função para buscar dados
             function fetchData() {
                 if (isLoading) return;
                 isLoading = true;
                 wrap.addClass('loading');
 
-                // Mostrar loading apenas na primeira vez
                 if (tbody.children().length === 0) {
                     tbody.html('<tr><td colspan="10" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>');
                 }
@@ -37,8 +38,11 @@
                     cache_minutes: cache_minutes,
                     has_header: has_header ? 1 : 0,
                     search: currentSearchTerm,
-                    sort_column: currentSort.column, // Novo: coluna para ordenar
-                    sort_direction: currentSort.direction // Novo: direção da ordenação
+                    sort_column: currentSort.column,
+                    sort_direction: currentSort.direction,
+                    remove_rows: remove_rows,
+                    remove_cols: remove_cols,
+                    column_filters: columnFilters
                 };
 
                 $.ajax({
@@ -67,7 +71,6 @@
                 });
             }
 
-            // Função para renderizar a tabela
             function renderTable(data) {
                 thead.empty();
                 tbody.empty();
@@ -83,18 +86,56 @@
                     headers = Array.from({ length: data.rows[0].length }, (_, i) => 'Coluna ' + (i + 1));
                 }
 
-                // Renderizar cabeçalho com cliques para ordenação
                 var headerRow = $('<tr>');
                 headers.forEach(function (header, columnIndex) {
-                    var th = $('<th>').text(header);
+                    var th = $('<th>');
+
+                    if (header.length > 20) {
+                        var shortText = header.substring(0, 20) + '...';
+                        var headerContent = $('<span>').text(shortText);
+                        var toggleLink = $('<a>', { href: '#', text: ' [ver mais]' }).addClass('toggle-text');
+                        
+                        th.append(headerContent).append(toggleLink);
+
+                        toggleLink.on('click', function(e){
+                            e.preventDefault();
+                            e.stopPropagation();
+                            var isShort = headerContent.text() === shortText;
+                            headerContent.text(isShort ? header : shortText);
+                            $(this).text(isShort ? ' [ver menos]' : ' [ver mais]');
+                        });
+                    } else {
+                        th.text(header);
+                    }
+
+                    var filterIcon = $('<span>').addClass('filter-icon').html(' &#128269;');
+                    var filterInput = $('<input>').addClass('filter-input').attr('data-column', columnIndex);
+                    th.append(filterIcon);
+                    th.append(filterInput);
+
+                    filterIcon.on('click', function(e) {
+                        e.stopPropagation();
+                        filterInput.toggle();
+                    });
+
+                    filterInput.on('click', function(e) {
+                        e.stopPropagation();
+                    });
+
+                    filterInput.on('input', function() {
+                        columnFilters[columnIndex] = $(this).val();
+                        clearTimeout(searchTimer);
+                        searchTimer = setTimeout(function () {
+                            currentPage = 1;
+                            fetchData();
+                        }, 500);
+                    });
                     
-                    // Adicionar indicador de ordenação
                     if (currentSort.column === columnIndex) {
                         th.append(' ' + (currentSort.direction === 'asc' ? '↑' : '↓'));
                         th.addClass('sorted');
                     }
                     
-                    // Evento de clique para ordenação
                     th.css('cursor', 'pointer').attr('title', 'Clique para ordenar');
                     th.on('click', function () {
                         handleSort(columnIndex);
@@ -104,11 +145,8 @@
                 });
                 thead.append(headerRow);
 
-                // Renderizar linhas de dados
                 data.rows.forEach(function (rowData, rowIndex) {
                     var row = $('<tr>').addClass('csv-table-row');
-                    
-                    // Adicionar data attributes com informações da linha
                     row.attr('data-row-index', rowIndex);
                     row.attr('data-page', currentPage);
                     
@@ -120,53 +158,38 @@
                     tbody.append(row);
                 });
 
-                // Adicionar evento de clique para as linhas
                 tbody.off('click', 'tr').on('click', 'tr', function (e) {
                     e.stopPropagation();
-                    
-                    // Remover seleção anterior
                     tbody.find('tr.selected').removeClass('selected');
-                    
-                    // Adicionar seleção à linha clicada
                     $(this).addClass('selected');
-                    
-                    // Coletar dados da linha selecionada
                     var rowData = [];
                     $(this).find('td').each(function () {
                         rowData.push($(this).text());
                     });
-                    
-                    // Disparar evento customizado
                     $(document).trigger('csvTableRowSelected', [rowData, $(this)]);
                 });
 
                 updatePagination(data);
             }
 
-            // Função para lidar com a ordenação
             function handleSort(columnIndex) {
-                // Se já está ordenando por esta coluna, inverter a direção
                 if (currentSort.column === columnIndex) {
                     currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
                 } else {
-                    // Nova coluna, ordenar ascendente por padrão
                     currentSort.column = columnIndex;
                     currentSort.direction = 'asc';
                 }
                 
-                // Resetar para primeira página e buscar dados
                 currentPage = 1;
                 fetchData();
             }
 
-            // Função para atualizar a paginação
             function updatePagination(data) {
                 paginationEl.empty();
                 var total_pages = data && data.total_pages ? data.total_pages : 1;
                 var total_rows = data && data.total_rows ? data.total_rows : 0;
                 var current_page = data && data.page ? data.page : 1;
                 
-                // Atualizar currentPage com o valor retornado pelo servidor
                 currentPage = current_page;
                 
                 var infoText = 'Exibindo página ' + currentPage + ' de ' + total_pages +
@@ -177,7 +200,6 @@
 
                 var paginationControls = $('<div>').addClass('pagination-controls');
                 
-                // Botão Anterior
                 if (currentPage > 1) {
                     $('<button>')
                         .addClass('page-btn prev-btn')
@@ -189,11 +211,9 @@
                         .appendTo(paginationControls);
                 }
 
-                // Números de página
                 var startPage = Math.max(1, currentPage - 2);
                 var endPage = Math.min(total_pages, startPage + 4);
                 
-                // Ajustar startPage se necessário
                 if (endPage - startPage < 4) {
                     startPage = Math.max(1, endPage - 4);
                 }
@@ -209,7 +229,6 @@
                         .appendTo(paginationControls);
                 }
 
-                // Botão Próximo
                 if (currentPage < total_pages) {
                     $('<button>')
                         .addClass('page-btn next-btn')
@@ -224,13 +243,11 @@
                 paginationControls.appendTo(paginationEl);
             }
 
-            // Event listener para mudança de itens por página
             perPageSelect.off('change').on('change', function () {
                 currentPage = 1;
                 fetchData();
             });
 
-            // Busca via backend
             searchInput.on('input', function () {
                 clearTimeout(searchTimer);
                 currentSearchTerm = $(this).val();
@@ -240,19 +257,16 @@
                 }, 500);
             });
 
-            // Remover seleção ao clicar fora da tabela
             $(document).on('click', function (e) {
                 if (!$(e.target).closest('.csv-table tbody tr').length) {
                     tbody.find('tr.selected').removeClass('selected');
                 }
             });
 
-            // Carga inicial
             fetchData();
         });
     });
 
-    // Exemplo de como usar o evento de seleção de linha
     $(document).on('csvTableRowSelected', function (e, rowData, rowElement) {
         console.log('Linha selecionada:', rowData);
         console.log('Elemento da linha:', rowElement);

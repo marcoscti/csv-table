@@ -50,6 +50,7 @@ class CSV_Table_Shortcode
         );
         wp_enqueue_script('csv-table-ajax-js', plugins_url('assets/js/csv-ajax.js', __FILE__), array(), false, true);
         wp_enqueue_style('csv-table-ajax-css', plugins_url('assets/css/csv-style.css', __FILE__),array(), "2.0", "all");
+        wp_enqueue_style('csv-table-filter-css', plugins_url('assets/css/csv-filter.css', __FILE__),array(), "1.0", "all");
 
         wp_localize_script('csv-table-ajax-js', 'CSVTableAjax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -72,7 +73,6 @@ class CSV_Table_Shortcode
         $file = $paths['file'];
         $meta_file = $paths['meta'];
 
-        // If cached and fresh, return path
         if (file_exists($file) && file_exists($meta_file)) {
             $meta = json_decode(file_get_contents($meta_file), true);
 
@@ -81,7 +81,6 @@ class CSV_Table_Shortcode
             }
         }
 
-        // Download the CSV file
         $tmpfile = $file . '.tmp';
         if (file_exists($tmpfile)) @unlink($tmpfile);
 
@@ -104,17 +103,15 @@ class CSV_Table_Shortcode
             return new WP_Error('bad_status', 'HTTP status ' . $code);
         }
 
-        // Convert CSV to JSON format
         if (file_exists($tmpfile)) {
             try {
-                // Read CSV and convert to JSON
                 $csv_data = array();
                 $header = array();
                 $first_line = true;
 
                 $csv_file = new SplFileObject($tmpfile, 'r');
                 $csv_file->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY);
-                $csv_file->setCsvControl(';'); // Assuming semicolon delimiter for CSV
+                $csv_file->setCsvControl(';');
 
                 foreach ($csv_file as $row) {
                     if ($row === null || (is_array($row) && count($row) === 1 && $row[0] === null)) {
@@ -129,20 +126,16 @@ class CSV_Table_Shortcode
                     }
                 }
 
-                // Create JSON structure
                 $json_data = array(
                     'header' => $header,
                     'data' => $csv_data
                 );
 
-                // Save as JSON
                 if (file_exists($file)) @unlink($file);
                 file_put_contents($file, wp_json_encode($json_data));
 
-                // Remove temp file
                 @unlink($tmpfile);
 
-                // Save meta
                 $meta = array('saved_at' => time(), 'url' => $url);
                 file_put_contents($meta_file, wp_json_encode($meta));
 
@@ -177,7 +170,6 @@ class CSV_Table_Shortcode
 
 public function ajax_fetch()
 {   
-    // Segurança
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'csv_table_ajax_nonce')) {
         wp_send_json_error('Nonce verification failed', 403);
         wp_die();
@@ -189,6 +181,9 @@ public function ajax_fetch()
     $cache_minutes = isset($_POST['cache_minutes']) ? max(0, intval($_POST['cache_minutes'])) : 60;
     $has_header = isset($_POST['has_header']) ? ($_POST['has_header'] === '1' || $_POST['has_header'] === 'true') : true;
     $search = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
+    $remove_rows = isset($_POST['remove_rows']) ? sanitize_text_field(wp_unslash($_POST['remove_rows'])) : '';
+    $remove_cols = isset($_POST['remove_cols']) ? sanitize_text_field(wp_unslash($_POST['remove_cols'])) : '';
+    $column_filters = isset($_POST['column_filters']) && is_array($_POST['column_filters']) ? array_map('sanitize_text_field', $_POST['column_filters']) : array();
 
     if (empty($url)) {
        wp_send_json_error('Missing URL parameter', 400);
@@ -201,29 +196,62 @@ public function ajax_fetch()
         wp_die();
     }
 
-    // Ler JSON do arquivo
     $json_data = $this->get_json_data($local);
     $header = $json_data['header'];
     $all_data = $json_data['data'];
 
-   
-    // SEMPRE paginar - remover a lógica do get_all
-    $filtered_data = array();
-    if ($search === '') {
-        $filtered_data = $all_data;
-    } else {
-        $search_lower = trim(strtolower($search));
-        foreach ($all_data as $row) {
-            $found = false;
-            foreach ($row as $cell) {
-                $cell_value = strval($cell);
-                if (strpos(strtolower($cell_value), $search_lower) !== false) {
-                    $found = true;
-                    break;
+    if (!empty($remove_cols)) {
+        $cols_to_remove = array_map('trim', explode(',', $remove_cols));
+        $cols_to_remove_indices = [];
+        foreach ($cols_to_remove as $col) {
+            if (is_numeric($col)) {
+                $cols_to_remove_indices[] = intval($col) - 1;
+            } else {
+                $index = array_search($col, $header);
+                if ($index !== false) {
+                    $cols_to_remove_indices[] = $index;
                 }
             }
-            if ($found) {
-                $filtered_data[] = $row;
+        }
+
+        if (!empty($cols_to_remove_indices)) {
+            $header = array_values(array_diff_key($header, array_flip($cols_to_remove_indices)));
+            foreach ($all_data as &$row) {
+                $row = array_values(array_diff_key($row, array_flip($cols_to_remove_indices)));
+            }
+        }
+    }
+
+    if (!empty($remove_rows)) {
+        $rows_to_remove = array_map('intval', explode(',', $remove_rows));
+        foreach ($rows_to_remove as $row_index) {
+            if (isset($all_data[$row_index - 1])) {
+                unset($all_data[$row_index - 1]);
+            }
+        }
+        $all_data = array_values($all_data);
+    }
+
+    $filtered_data = $all_data;
+    if ($search !== '') {
+        $search_lower = trim(strtolower($search));
+        $filtered_data = array_filter($filtered_data, function($row) use ($search_lower) {
+            foreach ($row as $cell) {
+                if (strpos(strtolower(strval($cell)), $search_lower) !== false) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    if (!empty($column_filters)) {
+        foreach ($column_filters as $col_index => $filter_value) {
+            if ($filter_value !== '') {
+                $filter_value_lower = trim(strtolower($filter_value));
+                $filtered_data = array_filter($filtered_data, function($row) use ($col_index, $filter_value_lower) {
+                    return isset($row[$col_index]) && strpos(strtolower(strval($row[$col_index])), $filter_value_lower) !== false;
+                });
             }
         }
     }
@@ -236,10 +264,8 @@ public function ajax_fetch()
     }
 
     $start = ($page - 1) * $per_page;
-    $page_data = array_slice($filtered_data, $start, $per_page);
+    $page_data = array_slice(array_values($filtered_data), $start, $per_page);
 
-   
-    // Cabeçalho numérico se não existir
     if (empty($header) && $has_header && !empty($page_data)) {
         $col_count = count($page_data[0]);
         $header = array();
@@ -248,7 +274,6 @@ public function ajax_fetch()
         }
     }
 
-    // Normalizar linhas
     $safe_rows = array();
     foreach ($page_data as $row) {
         $safe_row = array();
@@ -282,6 +307,8 @@ public function ajax_fetch()
             'delimiter' => ',',
             'has_header' => 1,
             'class' => '',
+            'remove_rows' => '',
+            'remove_cols' => '',
         ), $atts, 'csv_table');
 
         if (empty($atts['url'])) {
@@ -296,7 +323,9 @@ public function ajax_fetch()
             data-per_page="<?php echo intval($atts['per_page']); ?>"
             data-cache_minutes="<?php echo intval($atts['cache_minutes']); ?>"
             data-delimiter="<?php echo esc_attr($atts['delimiter']); ?>"
-            data-has_header="<?php echo intval($atts['has_header']); ?>">
+            data-has_header="<?php echo intval($atts['has_header']); ?>"
+            data-remove_rows="<?php echo esc_attr($atts['remove_rows']); ?>"
+            data-remove_cols="<?php echo esc_attr($atts['remove_cols']); ?>">
             <div class="csv-table-controls">
                 <label><input type="search" class="csv-table-search" placeholder="Digite a sua pesquisa"></label>
                 <label>
