@@ -91,9 +91,9 @@
                     var th = $('<th>');
 
                     if (header.length > 20) {
-                        var shortText = header.substring(0, 20) + '...';
+                        var shortText = header.substring(0, 10) + '...';
                         var headerContent = $('<span>').text(shortText);
-                        var toggleLink = $('<a>', { href: '#', text: ' [ver mais]' }).addClass('toggle-text');
+                        var toggleLink = $('<a>', { href: '#', text: ' [+ mais]' }).addClass('toggle-text');
                         
                         th.append(headerContent).append(toggleLink);
 
@@ -102,7 +102,7 @@
                             e.stopPropagation();
                             var isShort = headerContent.text() === shortText;
                             headerContent.text(isShort ? header : shortText);
-                            $(this).text(isShort ? ' [ver menos]' : ' [ver mais]');
+                            $(this).text(isShort ? ' [- menos]' : ' [+ mais]');
                         });
                     } else {
                         th.text(header);
