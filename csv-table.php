@@ -4,9 +4,10 @@
  * Plugin Name: CSV Table
  * Description: Shortcode para ler um CSV remoto e renderizar uma tabela paginada do lado do servidor via AJAX. Otimizado para transmitir arquivos CSV grandes. Uso: [csv_table url="https://example.com/file.csv" per_page="10" cache_minutes="60" delimiter=";"]
  * Version: 2.0.0
- * Author: Marcos Cordeiro
- * Author URI: https://marcoscti.dev/
- * License: GPL2
+ * Author:            Marcos Cordeiro
+ * Author URI:        https://github.com/marcoscti
+ * License:           GPL-2.0+
+ * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: marcoscti
  */
@@ -38,8 +39,8 @@ class CSV_Table_Shortcode
         wp_enqueue_style('datatables-css','https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css',array(),'1.13.6');
         wp_enqueue_script('datatables-js','https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js',array('jquery'),'1.13.6',true);
         wp_enqueue_script('csv-table-ajax-js', plugins_url('assets/js/csv-ajax.js', __FILE__), array(), false, true);
-        wp_enqueue_style('csv-table-ajax-css', plugins_url('assets/css/csv-style.css', __FILE__),array(), "2.0", "all");
-        wp_enqueue_style('csv-table-filter-css', plugins_url('assets/css/csv-filter.css', __FILE__),array(), "1.0", "all");
+        wp_enqueue_style('csv-table-ajax-css', plugins_url('assets/css/csv-style.css', __FILE__),array(), "2.0.0", "all");
+        wp_enqueue_style('csv-table-filter-css', plugins_url('assets/css/csv-filter.css', __FILE__),array(), "2.0.0", "all");
         wp_localize_script('csv-table-ajax-js', 'CSVTableAjax', array('ajax_url' => admin_url('admin-ajax.php'),'nonce'    => wp_create_nonce('csv_table_ajax_nonce'),));
     }
 
