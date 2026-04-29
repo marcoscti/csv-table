@@ -25,7 +25,6 @@
       var isLoading = false;
       var currentSearchTerm = "";
       var searchTimer = null;
-      var currentSort = { column: null, direction: "asc" };
       var columnFilters = {};
 
       function fetchData() {
@@ -48,8 +47,6 @@
           cache_minutes: cache_minutes,
           has_header: has_header ? 1 : 0,
           search: currentSearchTerm,
-          sort_column: currentSort.column,
-          sort_direction: currentSort.direction,
           column_filters: columnFilters,
           delimiter: wrap.data("delimiter") || ",",
         };
@@ -139,12 +136,11 @@
             .html(" &#128269;");
           var filterInput = $("<input>")
             .addClass("filter-input")
-            .attr("data-column", columnIndex); // Removed .hide()
+            .attr("data-column", columnIndex);
           var clearFilter = $("<span>")
             .addClass("clear-filter")
             .html(" &times;")
-            .css("cursor", "pointer")
-            .hide();
+            .css("cursor", "pointer");
 
           th.append(filterIcon);
           th.append(filterInput);
@@ -152,30 +148,28 @@
 
           // If there's a filter, ensure input and clear icon are visible and populated
           if (columnFilters[columnIndex] && columnFilters[columnIndex] !== "") {
-            filterInput.val(columnFilters[columnIndex]); // No .show() needed if not hidden initially
-            clearFilter.show();
+            filterInput.val(columnFilters[columnIndex]);
+            filterInput.addClass("show");
+            clearFilter.addClass("show");
           }
 
           filterIcon.on("click", function (e) {
             e.stopPropagation();
-            // If filterInput is visible, hide it and clearFilter.
-            // If filterInput is hidden, show it.
-            if (filterInput.is(":visible")) {
-              filterInput.hide();
-              clearFilter.hide();
+            if (filterInput.hasClass("show")) {
+              filterInput.removeClass("show");
+              clearFilter.removeClass("show");
             } else {
-              filterInput.show();
+              filterInput.addClass("show");
               if (filterInput.val() !== "") {
-                // Only show clearFilter if there's text
-                clearFilter.show();
+                clearFilter.addClass("show");
               }
             }
           });
 
           clearFilter.on("click", function (e) {
             e.stopPropagation();
-            filterInput.val(""); // Clear value, but don't hide input
-            $(this).hide(); // Hide clear icon
+            filterInput.val("").removeClass("show");
+            $(this).removeClass("show");
             delete columnFilters[columnIndex];
             currentPage = 1;
             fetchData();
@@ -190,9 +184,9 @@
             columnFilters[columnIndex] = searchTerm;
 
             if (searchTerm !== "") {
-              clearFilter.show();
+              clearFilter.addClass("show");
             } else {
-              clearFilter.hide();
+              clearFilter.removeClass("show");
             }
 
             clearTimeout(searchTimer);
@@ -200,16 +194,6 @@
               currentPage = 1;
               fetchData();
             }, 500);
-          });
-
-          if (currentSort.column === columnIndex) {
-            th.append(" " + (currentSort.direction === "asc" ? "↑" : "↓"));
-            th.addClass("sorted");
-          }
-
-          th.css("cursor", "pointer").attr("title", "Clique para ordenar");
-          th.on("click", function () {
-            handleSort(columnIndex);
           });
 
           headerRow.append(th);
@@ -243,19 +227,6 @@
         });
 
         updatePagination(data);
-      }
-
-      function handleSort(columnIndex) {
-        if (currentSort.column === columnIndex) {
-          currentSort.direction =
-            currentSort.direction === "asc" ? "desc" : "asc";
-        } else {
-          currentSort.column = columnIndex;
-          currentSort.direction = "asc";
-        }
-
-        currentPage = 1;
-        fetchData();
       }
 
       function updatePagination(data) {

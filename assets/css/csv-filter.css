@@ -1,10 +1,26 @@
 .filter-icon {
-    margin-left: 5px;
-    cursor: pointer;
+  margin-left: 5px;
+  cursor: pointer;
 }
 
 .filter-input {
-    display: none;
-    width: 100%;
-    margin-top: 5px;
+  display: none;
+  width: 100%;
+  margin-top: 5px;
 }
+.filter-input {
+  display: none;
+}
+
+.filter-input.show {
+  display: block;
+}
+
+.clear-filter {
+  display: none;
+}
+
+.clear-filter.show {
+  display: block;
+}
+
