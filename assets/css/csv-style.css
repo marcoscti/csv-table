@@ -23,6 +23,7 @@
 .csv-table td {
     padding: 10px 15px;
     border-bottom: 1px solid #e0e0e0;
+    text-wrap: nowrap;
 }
 
 .csv-table tr:nth-child(even) {
@@ -155,7 +156,7 @@
 }
 
 .csv-table tr.selected {
-    background: #ffee0062 !important;
+    background: #c8d400 !important;
 }
 
 .csv-table tr.selected td {

@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: CSV Table
- * Description: Shortcode para ler um CSV remoto e renderizar uma tabela paginada do lado do servidor via AJAX. Otimizado para transmitir arquivos CSV grandes. Uso: [csv_table url="https://example.com/file.csv" per_page="10" cache_minutes="60" delimiter=";"]
+ * Description: Shortcode para ler um CSV remoto e renderizar uma tabela paginada do lado do servidor via AJAX. Otimizado para transmitir arquivos CSV grandes. Uso: [csv_table url="https://example.com/file.csv" per_page="10" cache_minutes="60" delimiter=","]
  * Version: 2.0.0
  * Author:            Marcos Cordeiro
  * Author URI:        https://github.com/marcoscti
@@ -15,7 +15,7 @@
 if (! defined('ABSPATH')) {
     exit;
 }
-
+define('CSV_TABLE_VERSION', '2.0.1');
 class CSV_Table_Shortcode
 {
     private $cache_dir;
@@ -36,12 +36,12 @@ class CSV_Table_Shortcode
 
     public function enqueue_assets()
     {
-        wp_enqueue_style('datatables-css','https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css',array(),'1.13.6');
-        wp_enqueue_script('datatables-js','https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js',array('jquery'),'1.13.6',true);
-        wp_enqueue_script('csv-table-ajax-js', plugins_url('assets/js/csv-ajax.js', __FILE__), array(), false, true);
-        wp_enqueue_style('csv-table-ajax-css', plugins_url('assets/css/csv-style.css', __FILE__),array(), "2.0.0", "all");
-        wp_enqueue_style('csv-table-filter-css', plugins_url('assets/css/csv-filter.css', __FILE__),array(), "2.0.0", "all");
-        wp_localize_script('csv-table-ajax-js', 'CSVTableAjax', array('ajax_url' => admin_url('admin-ajax.php'),'nonce'    => wp_create_nonce('csv_table_ajax_nonce'),));
+        wp_enqueue_style('datatables-css', 'https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css', array(), '1.13.6');
+        wp_enqueue_script('datatables-js', 'https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js', array('jquery'), '1.13.6', true);
+        wp_enqueue_script('csv-table-ajax-js', plugins_url('assets/js/csv-ajax.js', __FILE__), array(), CSV_TABLE_VERSION, true);
+        wp_enqueue_style('csv-table-ajax-css', plugins_url('assets/css/csv-style.css', __FILE__), array(), CSV_TABLE_VERSION, "all");
+        wp_enqueue_style('csv-table-filter-css', plugins_url('assets/css/csv-filter.css', __FILE__), array(), CSV_TABLE_VERSION, "all");
+        wp_localize_script('csv-table-ajax-js', 'CSVTableAjax', array('ajax_url' => admin_url('admin-ajax.php'), 'nonce'    => wp_create_nonce('csv_table_ajax_nonce'),));
     }
 
     private function get_cache_paths($url)
@@ -53,7 +53,7 @@ class CSV_Table_Shortcode
         );
     }
 
-    private function ensure_local_copy($url, $cache_minutes = 60)
+    private function ensure_local_copy($url, $cache_minutes = 60, $delimiter = ';')
     {
         $paths = $this->get_cache_paths($url);
         $file = $paths['file'];
@@ -71,7 +71,9 @@ class CSV_Table_Shortcode
         if (file_exists($tmpfile)) @unlink($tmpfile);
 
         $args = array(
-            'timeout'   => 60,
+            'timeout'   => 120,
+            'redirection' => 5,
+            'httpversion' => '1.1',
             'stream'    => true,
             'filename'  => $tmpfile,
             'sslverify' => false,
@@ -80,6 +82,9 @@ class CSV_Table_Shortcode
 
         if (is_wp_error($resp)) {
             if (file_exists($tmpfile)) @unlink($tmpfile);
+            if (file_exists($file)) {
+                return $file;
+            }
             return new WP_Error('download_failed', $resp->get_error_message());
         }
 
@@ -97,7 +102,7 @@ class CSV_Table_Shortcode
 
                 $csv_file = new SplFileObject($tmpfile, 'r');
                 $csv_file->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY);
-                $csv_file->setCsvControl(';');
+                $csv_file->setCsvControl($delimiter);
 
                 foreach ($csv_file as $row) {
                     if ($row === null || (is_array($row) && count($row) === 1 && $row[0] === null)) {
@@ -154,147 +159,112 @@ class CSV_Table_Shortcode
         );
     }
 
-public function ajax_fetch()
-{   
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'csv_table_ajax_nonce')) {
-        wp_send_json_error('Nonce verification failed', 403);
-        wp_die();
-    }
+    public function ajax_fetch()
+    {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'csv_table_ajax_nonce')) {
+            wp_send_json_error('Nonce verification failed', 403);
+            wp_die();
+        }
 
-    $url = isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '';
-    $per_page = isset($_POST['per_page']) ? max(1, intval($_POST['per_page'])) : 10;
-    $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
-    $cache_minutes = isset($_POST['cache_minutes']) ? max(0, intval($_POST['cache_minutes'])) : 60;
-    $has_header = isset($_POST['has_header']) ? ($_POST['has_header'] === '1' || $_POST['has_header'] === 'true') : true;
-    $search = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
-    $remove_rows = isset($_POST['remove_rows']) ? sanitize_text_field(wp_unslash($_POST['remove_rows'])) : '';
-    $remove_cols = isset($_POST['remove_cols']) ? sanitize_text_field(wp_unslash($_POST['remove_cols'])) : '';
-    $column_filters = isset($_POST['column_filters']) && is_array($_POST['column_filters']) ? array_map('sanitize_text_field', $_POST['column_filters']) : array();
+        $url = isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '';
+        $per_page = isset($_POST['per_page']) ? max(1, intval($_POST['per_page'])) : 10;
+        $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
+        $cache_minutes = isset($_POST['cache_minutes']) ? max(0, intval($_POST['cache_minutes'])) : 60;
+        $has_header = isset($_POST['has_header']) ? ($_POST['has_header'] === '1' || $_POST['has_header'] === 'true') : true;
+        $search = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
+        $delimiter = isset($_POST['delimiter']) ? sanitize_text_field(wp_unslash($_POST['delimiter'])) : ',';
+        $column_filters = isset($_POST['column_filters']) && is_array($_POST['column_filters']) ? array_map('sanitize_text_field', $_POST['column_filters']) : array();
 
-    if (empty($url)) {
-       wp_send_json_error('Missing URL parameter', 400);
-        wp_die();
-    }
+        if (empty($url)) {
+            wp_send_json_error('Missing URL parameter', 400);
+            wp_die();
+        }
 
-    $local = $this->ensure_local_copy($url, $cache_minutes);
-    if (is_wp_error($local)) {
-        wp_send_json_error('Failed to load CSV: ' . $local->get_error_message(), 500);
-        wp_die();
-    }
+        $local = $this->ensure_local_copy($url, $cache_minutes, $delimiter);
+        if (is_wp_error($local)) {
+            wp_send_json_error('Failed to load CSV: ' . $local->get_error_message(), 500);
+            wp_die();
+        }
 
-    $json_data = $this->get_json_data($local);
-    $header = $json_data['header'];
-    $all_data = $json_data['data'];
+        $json_data = $this->get_json_data($local);
+        $header = $json_data['header'];
+        $all_data = $json_data['data'];
 
-    if (!empty($remove_cols)) {
-        $cols_to_remove = array_map('trim', explode(',', $remove_cols));
-        $cols_to_remove_indices = [];
-        foreach ($cols_to_remove as $col) {
-            if (is_numeric($col)) {
-                $cols_to_remove_indices[] = intval($col) - 1;
-            } else {
-                $index = array_search($col, $header);
-                if ($index !== false) {
-                    $cols_to_remove_indices[] = $index;
+        $filtered_data = $all_data;
+        if ($search !== '') {
+            $search_lower = trim(strtolower($search));
+            $filtered_data = array_filter($filtered_data, function ($row) use ($search_lower) {
+                foreach ($row as $cell) {
+                    if (strpos(strtolower(strval($cell)), $search_lower) !== false) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        if (!empty($column_filters)) {
+            foreach ($column_filters as $col_index => $filter_value) {
+                if ($filter_value !== '') {
+                    $filter_value_lower = trim(strtolower($filter_value));
+                    $filtered_data = array_filter($filtered_data, function ($row) use ($col_index, $filter_value_lower) {
+                        return isset($row[$col_index]) && strpos(strtolower(strval($row[$col_index])), $filter_value_lower) !== false;
+                    });
                 }
             }
         }
 
-        if (!empty($cols_to_remove_indices)) {
-            $header = array_values(array_diff_key($header, array_flip($cols_to_remove_indices)));
-            foreach ($all_data as &$row) {
-                $row = array_values(array_diff_key($row, array_flip($cols_to_remove_indices)));
+        $total_rows = count($filtered_data);
+        $total_pages = max(1, ceil($total_rows / $per_page));
+
+        if ($page > $total_pages) {
+            $page = $total_pages;
+        }
+
+        $start = ($page - 1) * $per_page;
+        $page_data = array_slice(array_values($filtered_data), $start, $per_page);
+
+        if (empty($header) && $has_header && !empty($page_data)) {
+            $col_count = count($page_data[0]);
+            $header = array();
+            for ($i = 0; $i < $col_count; $i++) {
+                $header[] = 'Coluna ' . ($i + 1);
             }
         }
-    }
 
-    if (!empty($remove_rows)) {
-        $rows_to_remove = array_map('intval', explode(',', $remove_rows));
-        foreach ($rows_to_remove as $row_index) {
-            if (isset($all_data[$row_index - 1])) {
-                unset($all_data[$row_index - 1]);
-            }
-        }
-        $all_data = array_values($all_data);
-    }
-
-    $filtered_data = $all_data;
-    if ($search !== '') {
-        $search_lower = trim(strtolower($search));
-        $filtered_data = array_filter($filtered_data, function($row) use ($search_lower) {
+        $safe_rows = array();
+        foreach ($page_data as $row) {
+            $safe_row = array();
             foreach ($row as $cell) {
-                if (strpos(strtolower(strval($cell)), $search_lower) !== false) {
-                    return true;
-                }
+                $safe_row[] = is_null($cell) ? '' : strval($cell);
             }
-            return false;
-        });
-    }
-
-    if (!empty($column_filters)) {
-        foreach ($column_filters as $col_index => $filter_value) {
-            if ($filter_value !== '') {
-                $filter_value_lower = trim(strtolower($filter_value));
-                $filtered_data = array_filter($filtered_data, function($row) use ($col_index, $filter_value_lower) {
-                    return isset($row[$col_index]) && strpos(strtolower(strval($row[$col_index])), $filter_value_lower) !== false;
-                });
-            }
+            $safe_rows[] = $safe_row;
         }
-    }
 
-    $total_rows = count($filtered_data);
-    $total_pages = max(1, ceil($total_rows / $per_page));
-
-    if ($page > $total_pages) {
-        $page = $total_pages;
-    }
-
-    $start = ($page - 1) * $per_page;
-    $page_data = array_slice(array_values($filtered_data), $start, $per_page);
-
-    if (empty($header) && $has_header && !empty($page_data)) {
-        $col_count = count($page_data[0]);
-        $header = array();
-        for ($i = 0; $i < $col_count; $i++) {
-            $header[] = 'Coluna ' . ($i + 1);
+        $safe_header = array();
+        foreach ($header as $cell) {
+            $safe_header[] = is_null($cell) ? '' : strval($cell);
         }
-    }
 
-    $safe_rows = array();
-    foreach ($page_data as $row) {
-        $safe_row = array();
-        foreach ($row as $cell) {
-            $safe_row[] = is_null($cell) ? '' : strval($cell);
-        }
-        $safe_rows[] = $safe_row;
-    }
 
-    $safe_header = array();
-    foreach ($header as $cell) {
-        $safe_header[] = is_null($cell) ? '' : strval($cell);
+        wp_send_json_success(array(
+            'header' => $safe_header,
+            'rows' => $safe_rows,
+            'total_rows' => $total_rows,
+            'total_pages' => $total_pages,
+            'page' => $page,
+        ));
+        wp_die();
     }
-
-    
-    wp_send_json_success(array(
-        'header' => $safe_header,
-        'rows' => $safe_rows,
-        'total_rows' => $total_rows,
-        'total_pages' => $total_pages,
-        'page' => $page,
-    ));
-    wp_die();
-}
     public function shortcode_handler($atts)
     {
         $atts = shortcode_atts(array(
             'url' => '',
             'per_page' => 10,
             'cache_minutes' => 60,
-            'delimiter' => ',',
+            'delimiter' => ';',
             'has_header' => 1,
             'class' => '',
-            'remove_rows' => '',
-            'remove_cols' => '',
         ), $atts, 'csv_table');
 
         if (empty($atts['url'])) {
@@ -309,9 +279,7 @@ public function ajax_fetch()
             data-per_page="<?php echo intval($atts['per_page']); ?>"
             data-cache_minutes="<?php echo intval($atts['cache_minutes']); ?>"
             data-delimiter="<?php echo esc_attr($atts['delimiter']); ?>"
-            data-has_header="<?php echo intval($atts['has_header']); ?>"
-            data-remove_rows="<?php echo esc_attr($atts['remove_rows']); ?>"
-            data-remove_cols="<?php echo esc_attr($atts['remove_cols']); ?>">
+            data-has_header="<?php echo intval($atts['has_header']); ?>">
             <div class="csv-table-controls">
                 <label><input type="search" class="csv-table-search" placeholder="Digite a sua pesquisa"></label>
                 <label>
