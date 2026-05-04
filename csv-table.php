@@ -3,7 +3,7 @@
 /**
  * Plugin Name: CSV Table
  * Description: Shortcode para ler um CSV remoto e renderizar uma tabela paginada do lado do servidor via AJAX. Otimizado para transmitir arquivos CSV grandes. Uso: [csv_table url="https://example.com/file.csv" per_page="10" cache_minutes="60" delimiter=","]
- * Version: 2.0.0
+ * Version: 2.0.1
  * Author:            Marcos Cordeiro
  * Author URI:        https://github.com/marcoscti
  * License:           GPL-2.0+
