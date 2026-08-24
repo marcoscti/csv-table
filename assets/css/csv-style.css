@@ -128,6 +128,7 @@
     border: 1px solid #ddd;
     border-radius: 4px;
     min-width: 250px;
+    font-size: 16px;
 }
 
 .csv-table-perpage {
@@ -151,7 +152,8 @@
     .pagination-controls {
         flex-direction: row;
     }
-    .csv-table-pagination{
+
+    .csv-table-pagination {
         flex-direction: column;
     }
 }
@@ -250,4 +252,36 @@
         width: 16px;
         height: 16px;
     }
+}
+.links-download{
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 30px 0;
+}
+.download-icon {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+    align-items: center;
+    text-decoration: none;
+    border: 0.14rem solid #0094C6;
+    width: 100px;
+    border-radius: 4px;
+    color: #000;
+}
+
+.download-icon span {
+    font-weight: 600;
+}
+
+.download-icon:hover {
+    background-color: #0094C6;
+    color: white;
+}
+
+.download-icon:hover svg {
+    filter: invert(100%) sepia(0%) saturate(7500%) hue-rotate(254deg) brightness(109%) contrast(103%);
 }
