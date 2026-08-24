@@ -3,7 +3,7 @@
 /**
  * Plugin Name: CSV Table
  * Description: Shortcode para ler um CSV remoto e renderizar uma tabela paginada do lado do servidor via AJAX. Otimizado para transmitir arquivos CSV grandes. Uso: [csv_table url="https://example.com/file.csv" per_page="10" cache_minutes="60" delimiter=","]
- * Version: 2.1.0
+ * Version: 2.1.1
  * Author:            Marcos Cordeiro
  * Author URI:        https://github.com/marcoscti
  * License:           GPL-2.0+
@@ -15,7 +15,7 @@
 if (! defined('ABSPATH')) {
     exit;
 }
-define('CSV_TABLE_VERSION', '2.1.0');
+define('CSV_TABLE_VERSION', '2.1.1');
 class CSV_Table_Shortcode
 {
     private $cache_dir;
@@ -293,11 +293,15 @@ class CSV_Table_Shortcode
 
     public function ajax_download_xml()
     {
-        if (!isset($_GET['nonce']) || !wp_verify_nonce($_GET['nonce'], 'csv_table_ajax_nonce')) {
+        if (
+            !isset($_GET['nonce']) ||
+            !wp_verify_nonce($_GET['nonce'], 'csv_table_ajax_nonce')
+        ) {
             wp_die('Acesso negado.', 403);
         }
 
         $url = isset($_GET['url']) ? esc_url_raw($_GET['url']) : '';
+
         if (empty($url)) {
             wp_die('Parâmetro url ausente.', 400);
         }
@@ -306,30 +310,208 @@ class CSV_Table_Shortcode
         $file = $this->cache_dir . $hash . '.json';
 
         if (!file_exists($file)) {
-            wp_die('Arquivo JSON não encontrado. Carregue a tabela primeiro.', 404);
+            wp_die(
+                'Arquivo JSON não encontrado. Carregue a tabela primeiro.',
+                404
+            );
         }
 
-        $data    = json_decode(file_get_contents($file), true);
-        $headers = isset($data['header']) ? $data['header'] : array();
-        $rows    = isset($data['data'])   ? $data['data']   : array();
+        $data = json_decode(file_get_contents($file), true);
 
-        $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><data></data>');
+        if (!is_array($data)) {
+            wp_die('Arquivo JSON inválido.', 500);
+        }
+
+        $headers = isset($data['header']) && is_array($data['header'])
+            ? $data['header']
+            : [];
+
+        $rows = isset($data['data']) && is_array($data['data'])
+            ? $data['data']
+            : [];
+
+        /*
+     * Cria o XML
+     */
+        $xml = new SimpleXMLElement(
+            '<?xml version="1.0" encoding="UTF-8"?><data></data>'
+        );
+
+        /*
+     * Guarda os nomes de tags já utilizados.
+     * Isso evita duplicidade caso duas colunas diferentes
+     * resultem no mesmo nome depois da sanitização.
+     */
+        $used_tags = [];
+
+        /*
+     * Gera os nomes das colunas dinamicamente
+     */
+        $tags = [];
+
+        foreach ($headers as $i => $header) {
+
+            $tag = (string) $header;
+
+            /*
+         * Remove espaços no início/fim
+         */
+            $tag = trim($tag);
+
+            /*
+         * Remove acentos.
+         *
+         * Exemplo:
+         * "Descrição" -> "Descricao"
+         * "Admissão"  -> "Admissao"
+         */
+            $tag = remove_accents($tag);
+
+            /*
+         * Substitui qualquer caractere que não seja
+         * letra, número ou underscore.
+         */
+            $tag = preg_replace('/[^a-zA-Z0-9_]/', '_', $tag);
+
+            /*
+         * Remove underscores duplicados
+         */
+            $tag = preg_replace('/_+/', '_', $tag);
+
+            /*
+         * Remove underscore no início/fim
+         */
+            $tag = trim($tag, '_');
+
+            /*
+         * Se ficou vazio, cria um nome genérico.
+         */
+            if ($tag === '') {
+                $tag = 'field_' . $i;
+            }
+
+            /*
+         * XML não permite que o nome do elemento
+         * comece com número.
+         */
+            if (preg_match('/^[0-9]/', $tag)) {
+                $tag = 'field_' . $tag;
+            }
+
+            /*
+         * XML não permite nomes começando com "xml"
+         * em qualquer combinação de maiúsculas/minúsculas.
+         */
+            if (preg_match('/^xml/i', $tag)) {
+                $tag = 'field_' . $tag;
+            }
+
+            /*
+         * Garante que não existam duas tags iguais.
+         */
+            $base_tag = $tag;
+            $suffix = 1;
+
+            while (isset($used_tags[$tag])) {
+                $tag = $base_tag . '_' . $suffix;
+                $suffix++;
+            }
+
+            $used_tags[$tag] = true;
+
+            /*
+         * Guarda a relação:
+         *
+         * índice da coluna -> nome da tag XML
+         */
+            $tags[$i] = $tag;
+        }
+
+        /*
+     * Gera os registros
+     */
         foreach ($rows as $row) {
+
             $record = $xml->addChild('record');
-            foreach ($headers as $i => $col) {
-                $tag   = preg_replace('/[^a-zA-Z0-9_]/', '_', $col);
-                $tag   = ltrim($tag, '_0-9');
-                $tag   = $tag !== '' ? $tag : 'field_' . $i;
+
+            foreach ($headers as $i => $header) {
+
+                /*
+             * Usa o nome gerado dinamicamente acima
+             */
+                $tag = $tags[$i];
+
+                /*
+             * Obtém o valor da célula
+             */
                 $value = isset($row[$i]) ? $row[$i] : '';
-                $record->addChild($tag, htmlspecialchars($value, ENT_XML1, 'UTF-8'));
+
+                /*
+             * Garante que seja string
+             */
+                if (is_array($value) || is_object($value)) {
+                    $value = wp_json_encode(
+                        $value,
+                        JSON_UNESCAPED_UNICODE
+                    );
+                }
+
+                $value = (string) $value;
+
+                /*
+             * Remove caracteres que não são permitidos
+             * em XML 1.0.
+             *
+             * Isso é importante para CSVs que possam conter
+             * caracteres de controle invisíveis.
+             */
+                $value = preg_replace(
+                    '/[^\x09\x0A\x0D\x20-\x{D7FF}\x{E000}-\x{FFFD}]/u',
+                    '',
+                    $value
+                );
+
+                /*
+             * NÃO usar htmlspecialchars aqui.
+             *
+             * SimpleXMLElement já escapa:
+             *
+             * & -> &amp;
+             * < -> &lt;
+             * > -> &gt;
+             * etc.
+             */
+                $record->addChild($tag, $value);
             }
         }
 
-        $filename = sanitize_file_name(basename(parse_url($url, PHP_URL_PATH), '.csv') . '.xml');
+        /*
+     * Nome do arquivo
+     */
+        $path = parse_url($url, PHP_URL_PATH);
+        $base = pathinfo($path, PATHINFO_FILENAME);
 
-        header('Content-Type: application/xml; charset=utf-8');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Cache-Control: no-cache, must-revalidate');
+        if (empty($base)) {
+            $base = 'exportacao';
+        }
+
+        $filename = sanitize_file_name($base . '.xml');
+
+        /*
+     * Remove qualquer saída anterior.
+     */
+        if (ob_get_length()) {
+            ob_end_clean();
+        }
+
+        header('Content-Type: application/xml; charset=UTF-8');
+        header(
+            'Content-Disposition: attachment; filename="' . $filename . '"'
+        );
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
         echo $xml->asXML();
         exit;
     }
