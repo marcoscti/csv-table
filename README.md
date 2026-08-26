@@ -26,5 +26,9 @@ Adicione o shortcode em qualquer post ou página:
   url="https://example.com/file.csv" 
   per_page="10" 
   delimiter=";" 
-  cache_minutes="60" 
+  cache_minutes="60"
+  hide_csv="0"
+  hide_json="0"
+  hide_xml="0"
+  hide_xlsx="0"
 ]
