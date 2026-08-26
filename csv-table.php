@@ -740,7 +740,7 @@ class CSV_Table_Shortcode
                     <span>Baixar</span>
                 </a>
             <?php endif; ?>
-            <?php if (empty($atts['hide_xls'])): ?>
+            <?php if (empty($atts['hide_xlsx'])): ?>
                 <a href="<?php echo esc_url($xlsx_url); ?>" class="download-icon" target="_blank" rel="noopener noreferrer" title="Baixar arquivo no formato XLSX">
                     <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="40px" height="40px" viewBox="0 0 40 40" version="1.1">
                         <g id="surface1">
